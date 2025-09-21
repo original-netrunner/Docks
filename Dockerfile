@@ -1,14 +1,8 @@
-# ---- Base image ----
-FROM node:20-bullseye
+# ---- Use Lyfe's prebuilt base image ----
+FROM quay.io/lyfe00011/md:beta
 
-# Install system dependencies for sharp/ffmpeg/sqlite3
-RUN apt-get update && apt-get install -y \
-    git ffmpeg sqlite3 python3 make g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-# ---- Clone your repo ----
-WORKDIR /root
-RUN git clone https://github.com/original-netrunner/levanter.git bot
+# ---- Clone your fork instead of Lyfe's ----
+RUN git clone https://github.com/original-netrunner/levanter.git /root/bot
 WORKDIR /root/bot
 
 # ---- Add session protector ----
@@ -22,19 +16,13 @@ function isProtectedPath(p){if(!p)return false;try{const abs=path.resolve(p);ret
 (function patch(){try{const orig=fs.unlinkSync;fs.unlinkSync=function(p){if(isProtectedPath(p)){console.warn('[protect-session] blocked unlinkSync',p);return;}return orig.apply(this,arguments);};console.log('[protect-session] enabled');}catch(e){console.warn('[protect-session] failed',e&&e.message);}})();" \
 > lib/protect-session.js
 
-# ---- Patch index.js at repo root ----
+# ---- Patch root index.js to load protector first ----
 RUN echo "console.log('🚀 index.js bootstrap');\n\
 try { require('./lib/protect-session'); } catch(e){ console.warn('⚠️ protector failed:', e&&e.message);} \n\
 require('./lib/client');" > index.js
 
-# ---- Install dependencies ----
-RUN yarn install --network-concurrency 1
+# ---- Install dependencies (same as original) ----
+RUN yarn install
 
-# Ensure session dirs exist
-RUN mkdir -p /root/bot/session /root/bot/.session_backup
-
-# ---- Expose port (optional: dashboard etc.) ----
-EXPOSE 3000
-
-# ---- Start with PM2 ----
-CMD ["yarn", "docker"]
+# ---- Default command (same as original) ----
+CMD ["npm", "start"]
